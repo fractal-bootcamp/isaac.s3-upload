@@ -1,29 +1,64 @@
-import React from 'react';
+// src/pages/ViewFile.tsx
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { formatBytes } from '../HelperFunctions';
+import { isImageFile } from '../HelperFunctions';
+
+interface FileData {
+    id: string;
+    name: string;
+    size: string;
+    createdAt: string;
+    owner: boolean; // TODO: Replace with actual owner data when available
+    url: string;
+}
 
 const ViewFile: React.FC = () => {
     const { fileId } = useParams<{ fileId: string }>();
+    const [fileData, setFileData] = useState<FileData | null>(null);
 
-    // TODO: This is temporary mock data that affects all files uniformly
-    // In production, this data will be fetched from the backend per file
-    // For instance, the 'owner' property controls share button visibility globally until backend integration
-    const fileData = {
-        id: fileId,
-        name: 'File1.png',
-        size: '2MB',
-        createdAt: '2024-01-01',
-        owner: false,
-    };
+    useEffect(() => {
+        // Fetch data from the backend API
+        const apiBaseUrl = "http://localhost:3001"; // Temporary till we deploy it later
+        fetch(`${apiBaseUrl}/api/files`)
+            .then((response) => response.json())
+            .then((data) => {
+                // Map data to match the FileData interface
+                const files: FileData[] = data.files.map((file: any) => ({
+                    id: file.key,
+                    name: file.key,
+                    size: formatBytes(file.size),
+                    createdAt: new Date(file.lastModified).toLocaleDateString(),
+                    owner: true, // TODO: Replace with actual owner data when available
+                    url: file.url,
+                }));
+
+                // Find the file that matches the fileId from params
+                const matchedFile = files.find((file) => file.id === fileId);
+                setFileData(matchedFile || null);
+            })
+            .catch((error) => {
+                console.error('Error fetching files:', error);
+            });
+    }, [fileId]);
 
     const handleShare = () => {
-        console.log("Sharing file:", fileData.name);
+        console.log('Sharing file:', fileData?.name);
     };
+
+    if (!fileData) {
+        return <div>Loading...</div>;
+    }
 
     return (
         <div className="max-w-md mx-auto bg-white p-6 rounded shadow">
             <h2 className="text-2xl font-bold mb-4">{fileData.name}</h2>
-            <p><strong>Size:</strong> {fileData.size}</p>
-            <p><strong>Created At:</strong> {fileData.createdAt}</p>
+            <p>
+                <strong>Size:</strong> {fileData.size}
+            </p>
+            <p>
+                <strong>Created At:</strong> {fileData.createdAt}
+            </p>
             {fileData.owner && (
                 <button
                     onClick={handleShare}
@@ -31,6 +66,11 @@ const ViewFile: React.FC = () => {
                 >
                     Share
                 </button>
+            )}
+            {isImageFile(fileData.name) && (
+                <div className="mt-4">
+                    <img src={fileData.url} alt={fileData.name} className="max-w-full h-auto" />
+                </div>
             )}
         </div>
     );
