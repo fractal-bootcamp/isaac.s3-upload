@@ -25,11 +25,15 @@ const s3 = new S3({
 const BUCKET_NAME = "aizk-storage";
 
 // Health check endpoint
+// Example usage
+// curl -X GET http://localhost:3001/api/health
 app.get("/api/health", (req, res) => {
   res.json({ status: "healthy", timestamp: new Date().toISOString() });
 });
 
 // List all files in bucket
+// Example usage
+// curl -X GET http://localhost:3001/api/files
 app.get("/api/files", async (req, res) => {
   try {
     const objects = await s3.listObjects({ Bucket: BUCKET_NAME });
@@ -46,6 +50,37 @@ app.get("/api/files", async (req, res) => {
   } catch (error) {
     console.error("List files error:", error);
     res.status(500).json({ error: "Failed to list files" });
+  }
+});
+
+const upload = multer({
+  storage: multerS3({
+    s3: s3,
+    bucket: BUCKET_NAME,
+    metadata: (req, file, cb) => {
+      cb(null, { fieldName: file.fieldname });
+    },
+    key: (req, file, cb) => {
+      // Use the original file name or generate a unique one
+      const fileName = `${Date.now().toString()}-${file.originalname}`;
+      cb(null, fileName);
+    },
+  }),
+});
+
+// Upload file endpoint
+// Example usage:
+// curl -X POST -F "file=@/path/to/your/file.jpg" http://localhost:3001/api/upload
+app.post("/api/upload", upload.single("file"), (req, res) => {
+  try {
+    // The file is automatically uploaded to S3 by multer-s3
+    // You can access file details via req.file
+    res.json({
+      message: "File uploaded successfully",
+    });
+  } catch (error) {
+    console.error("Upload error:", error);
+    res.status(500).json({ error: "Failed to upload file" });
   }
 });
 
